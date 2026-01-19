@@ -23,10 +23,16 @@ def whatsapp_reply():
     - Text messages
     """
 
+    # Incoming WhatsApp message text
     incoming_text = request.values.get("Body", "").strip()
 
-    response_text, _ = handle_message(incoming_text)
+    # WhatsApp sender number (used as user_id)
+    from_number = request.values.get("From", "").strip()
 
+    # Pass BOTH user_id and message to bot
+    response_text, _ = handle_message(from_number, incoming_text)
+
+    # Build Twilio response
     resp = MessagingResponse()
     resp.message(response_text)
 
