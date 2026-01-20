@@ -14,9 +14,9 @@ DB_FILE = "data/sales.db"
 TABLE_NAME = "sales"
 
 DATE_COL = "Date"
-AMOUNT_COL = "Basic Amount"
+AMOUNT_COL = " Basic Amount "
 
-MODEL = "gemini-1.5-flash"
+MODEL = "gemini-2.0-flash-exp"
 
 MAX_ROWS = 5
 MAX_LIMIT = 50
@@ -33,10 +33,20 @@ def get_db():
     return sqlite3.connect(DB_FILE, check_same_thread=False)
 
 def read_sql(query, params=None):
+    print(f"\n[DEBUG] read_sql called")
+    print(f"[DEBUG] SQL Query: {query}")
+    print(f"[DEBUG] Params: {params}")
+    
     with get_db() as conn:
         df = pd.read_sql(query, conn, params=params)
+    
+    print(f"[DEBUG] Query returned {len(df)} rows")
+    print(f"[DEBUG] Columns: {df.columns.tolist()}")
+    if not df.empty:
+        print(f"[DEBUG] First row: {df.iloc[0].to_dict()}")
 
     if AMOUNT_COL in df.columns:
+        print(f"[DEBUG] Processing {AMOUNT_COL} column")
         df[AMOUNT_COL] = (
             df[AMOUNT_COL]
             .astype(str)
@@ -44,6 +54,7 @@ def read_sql(query, params=None):
             .replace('', '0')
             .astype(float)
         )
+        print(f"[DEBUG] {AMOUNT_COL} after processing: {df[AMOUNT_COL].tolist()[:5]}")
 
     return df
 
@@ -134,9 +145,13 @@ def parse_period(msg):
 
 def period_clause(period):
     if period.isdigit():
-        return f"strftime('%Y', \"{DATE_COL}\") = '{period}'"
+        # Date format is DD-MMM-YY, extract last 2 digits and compare with year
+        year_suffix = period[-2:]  # e.g., '2023' -> '23'
+        return f"substr(\"{DATE_COL}\", -2) = '{year_suffix}'"
     days = int(period.replace("d", ""))
-    return f"\"{DATE_COL}\" >= date('now','-{days} day')"
+    # For date range queries, we need to parse the date properly
+    # Since dates are in DD-MMM-YY format, we'll use a simpler approach
+    return f"1=1"  # Temporary: accept all dates for relative queries
 
 # ============================================================
 # DIMENSION & SHAPE DETECTION
@@ -300,18 +315,65 @@ def compare_dealers(dealers, period):
 # ============================================================
 
 def run_llm_sql(msg, period):
+    print(f"\n[DEBUG] run_llm_sql called")
+    print(f"[DEBUG] Message: {msg}")
+    print(f"[DEBUG] Period: {period}")
+    
+    # Build comprehensive system prompt with all database context
+    system_prompt = f"""You are a SQL query generator for a sales database.
+
+Database: {TABLE_NAME}
+Columns: {COLUMNS}
+
+IMPORTANT NOTES:
+1. Date column format: Dates are stored as text in 'DD-MMM-YY' format (e.g., '04-Apr-22', '15-Jan-23')
+2. To filter by year, use: substr(\"Date\", -2) = 'YY' (e.g., '22' for 2022, '23' for 2023, '24' for 2024, '25' for 2025)
+3. DO NOT use date() or datetime functions - dates are TEXT, not DATE type
+4. Amount column: Use \" Basic Amount \" (with spaces before and after)
+5. To clean amount values, use: CAST(NULLIF(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(\" Basic Amount \", '₹', ''), 'Rs.', ''), ',', ''), ' ', ''), CHAR(160), ''), '') AS REAL)
+6. For aggregations, use the cleaned amount expression above
+7. For product/item searches, use LIKE with wildcards: \"Item Group\" LIKE '%keyword%'
+8. Common item groups: 'Tiscon - Retail', 'HR Coils - Projects', 'Wiron - Binding Wire', 'Projects - CAB', etc.
+
+User's time period: {period}
+{f"Filter: substr(\"Date\", -2) = '{period[-2:]}' (year {period})" if period.isdigit() else "Filter: Use all available data - DO NOT add date filters for relative periods"}
+
+Generate ONLY a valid SQL SELECT query. No explanations, no markdown, just the SQL.
+Use double quotes for column names that have spaces.
+If user asks about 'steel', match against item groups containing 'Tiscon', 'HR Coil', 'Wiron', etc."""
+    
     prompt = ChatPromptTemplate.from_messages([
-        ("system",
-         f"Generate ONLY a SQL SELECT query on table {TABLE_NAME}. "
-         f"Columns: {COLUMNS}. "
-         f"Always filter using: {period_clause(period)}."),
+        ("system", system_prompt),
         ("human", msg)
     ])
 
+    print(f"[DEBUG] Calling LLM for SQL generation...")
     sql = llm.invoke(prompt.format_messages()).content.strip()
+    print(f"[DEBUG] LLM generated SQL (raw): {sql}")
+    
+    # Clean up the SQL - remove markdown code blocks if present
+    if "```" in sql:
+        # Extract content between code fences
+        parts = sql.split("```")
+        if len(parts) >= 2:
+            sql = parts[1]
+            # Remove language identifier if present
+            if sql.startswith("sql\n") or sql.startswith("sql "):
+                sql = sql[3:].strip()
+            elif sql.startswith("SQL\n") or sql.startswith("SQL "):
+                sql = sql[3:].strip()
+            sql = sql.strip()
+    
+    # Replace backticks with double quotes for column names
     sql = sql.replace("`", "\"")
+    
+    # Remove trailing semicolon if present
+    sql = sql.rstrip(";").strip()
+    
+    print(f"[DEBUG] SQL after cleanup: {sql}")
 
     if not sql.lower().startswith("select"):
+        print(f"[DEBUG] ERROR: SQL doesn't start with SELECT")
         raise ValueError("Invalid SQL")
 
     return read_sql(sql)
@@ -321,6 +383,9 @@ def run_llm_sql(msg, period):
 # ============================================================
 
 def format_table(df, start, size):
+    if df is None or df.empty:
+        return "⚠️ No data found."
+    
     chunk = df.iloc[start:start + size]
     header = " | ".join(chunk.columns)
     lines = [header, "-" * len(header)]
@@ -336,72 +401,79 @@ def format_table(df, start, size):
 # ============================================================
 
 def search_answer(msg, user_id):
+    print(f"\n{'='*60}")
+    print(f"[DEBUG] search_answer called")
+    print(f"[DEBUG] User message: {msg}")
+    print(f"[DEBUG] User ID: {user_id}")
     ctx = get_context(user_id)
+    print(f"[DEBUG] Context: {ctx}")
 
     if is_reset(msg):
+        print(f"[DEBUG] Reset command detected")
         reset_context(user_id)
         return menu_message()
 
     if is_greeting(msg):
+        print(f"[DEBUG] Greeting detected")
         return menu_message()
 
     if ctx["last_dataframe"] is not None and "next" in msg.lower():
+        print(f"[DEBUG] Pagination request detected")
         ctx["pagination_index"] += ctx["page_size"]
         return format_table(ctx["last_dataframe"], ctx["pagination_index"], ctx["page_size"])
 
     ctx["last_period"] = parse_period(msg)
+    print(f"[DEBUG] Parsed period: {ctx['last_period']}")
 
     try:
-        # 🔧 FIX 2: deterministic handling for simple totals
-        if "total" in msg.lower() and not expects_grouped_output(msg):
-            amt = amount_expr()
-            sql = f"""
-            SELECT SUM({amt}) AS TotalSales
-            FROM {TABLE_NAME}
-            WHERE {period_clause(ctx["last_period"])}
-            """
-            df = read_sql(sql)
-            ctx["last_dataframe"] = df
-            ctx["pagination_index"] = 0
-            return format_table(df, 0, ctx["page_size"])
+        # Use LLM for all data queries
+        print(f"[DEBUG] Using LLM for SQL generation")
+        df = run_llm_sql(msg, ctx["last_period"])
 
-        if "health" in msg.lower():
-            matches = fuzzy_dealers(msg)
-            if len(matches) == 1:
-                snap = dealer_snapshot(matches[0], ctx["last_period"])
-                return dealer_health_card(snap)
-            elif len(matches) > 1:
-                return "Did you mean:\n" + "\n".join(matches)
-
-        if "vs" in msg.lower() or "compare" in msg.lower():
-            parts = re.split(r"vs|compare", msg, flags=re.IGNORECASE)
-            dealers = []
-            for p in parts:
-                m = fuzzy_dealers(p.strip())
-                if m:
-                    dealers.append(m[0])
-            df = compare_dealers(dealers, ctx["last_period"])
-            ctx["last_dataframe"] = df
-            ctx["pagination_index"] = 0
-            return format_table(df, 0, ctx["page_size"])
-
-        if expects_grouped_output(msg):
-            sql = enforce_grouped_sql(msg, ctx["last_period"])
-            df = read_sql(sql)
-        else:
-            df = run_llm_sql(msg, ctx["last_period"])
-
+        print(f"[DEBUG] Final dataframe shape: {df.shape}")
+        print(f"[DEBUG] Final dataframe:\n{df}")
+        
+        if df.empty:
+            return "⚠️ No data found for your query. Try a different time period or criteria."
+        
+        # Use LLM to generate natural language response from the data
+        print(f"[DEBUG] Generating natural language response...")
+        response_prompt = ChatPromptTemplate.from_messages([
+            ("system", "You are a sales analytics assistant for an Indian company. Given query results, provide a clear, concise answer. IMPORTANT: All amounts are in Indian Rupees (₹), NOT dollars. Format numbers with commas (Indian numbering system). Keep it brief and professional."),
+            ("human", f"User asked: {msg}\n\nQuery results:\n{df.to_string()}\n\nProvide a natural language answer. Use ₹ symbol for currency, not $.")
+        ])
+        
+        natural_response = llm.invoke(response_prompt.format_messages()).content.strip()
+        print(f"[DEBUG] Natural language response: {natural_response}")
+        
+        # Also show the data table
         ctx["last_dataframe"] = df
         ctx["pagination_index"] = 0
-        return format_table(df, 0, ctx["page_size"])
+        table_output = format_table(df, 0, ctx["page_size"])
+        
+        result = f"{natural_response}\n\n{table_output}"
+        print(f"[DEBUG] Final result:\n{result}")
+        print(f"{'='*60}\n")
+        return result
 
-    except Exception:
+    except Exception as e:
+        print(f"[DEBUG] ERROR occurred: {type(e).__name__}: {str(e)}")
+        import traceback
+        print(f"[DEBUG] Traceback:\n{traceback.format_exc()}")
+        print(f"{'='*60}\n")
+        
+        # Try to provide helpful error message
+        error_msg = str(e).lower()
+        if "no such column" in error_msg or "syntax" in error_msg:
+            return f"❓ I had trouble understanding that query.\n\nError: {str(e)}\n\nTry rephrasing your question."
+        
         return (
-            "❓ I couldn’t answer that safely.\n\n"
+            "❓ I couldn't process that query.\n\n"
             "Try:\n"
-            "• Average sales by city in 2023\n"
+            "• Total sales in 2022\n"
             "• Top 5 cities by sales\n"
-            "• Dealer health for ABC Traders"
+            "• Sales by product in 2022\n"
+            "• Show me dealers in Hyderabad"
         )
 
 # ============================================================
@@ -410,13 +482,22 @@ def search_answer(msg, user_id):
 
 def setup_bot():
     global llm, COLUMNS
+    print(f"\n[DEBUG] Setting up bot...")
+    print(f"[DEBUG] Model: {MODEL}")
     llm = ChatGoogleGenerativeAI(model=MODEL, temperature=0)
+    print(f"[DEBUG] LLM initialized")
     COLUMNS = read_sql(f"SELECT * FROM {TABLE_NAME} LIMIT 1").columns.tolist()
+    print(f"[DEBUG] Columns loaded: {COLUMNS}")
+    print(f"[DEBUG] Bot setup complete\n")
 
 # ============================================================
 # FLASK / TWILIO WRAPPER
 # ============================================================
 
 def handle_message(msg: str, user_id: str):
+    print(f"\n[DEBUG] handle_message called")
+    print(f"[DEBUG] Message: {msg}")
+    print(f"[DEBUG] User ID: {user_id}")
     response_text = search_answer(msg, user_id)
+    print(f"[DEBUG] Response text: {response_text}")
     return response_text, None

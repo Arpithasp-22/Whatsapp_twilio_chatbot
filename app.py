@@ -35,12 +35,14 @@ def whatsapp_reply():
     incoming_text = request.values.get("Body", "").strip()
     from_number = request.values.get("From", "").strip()
 
+    print("Incoming message:", incoming_text)
+    print("From number:", from_number)
     # Forward message to bot logic
     response_text, _ = handle_message(
         incoming_text,
         user_id=from_number or "anonymous"
     )
-
+    print("Response text:", response_text)
     # Build Twilio response
     resp = MessagingResponse()
     resp.message(response_text)
