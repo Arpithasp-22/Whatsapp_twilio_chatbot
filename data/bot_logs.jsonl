@@ -8,3 +8,9 @@
 {"timestamp": "2026-01-16T15:35:22.702944", "user_message": "dealer balaji", "intent": "SNAPSHOT", "response": "Did you mean:\n1\ufe0f\u20e3 BALAJI STEEL CORPORATION\n2\ufe0f\u20e3 SRI BALAJI AGENCIES\n3\ufe0f\u20e3 SRI SAI BALAJI AGENCIES\n4\ufe0f\u20e3 S"}
 {"timestamp": "2026-01-16T15:35:36.958449", "user_message": "1", "intent": "SNAPSHOT", "response": "Did you mean:\n1\ufe0f\u20e3 SRI BALAJI AGENCIES\n2\ufe0f\u20e3 SRI BALAJI AGENCIES(B)\n\n\ud83d\udccc Reply with the number (e.g., 1, "}
 {"timestamp": "2026-01-16T15:37:01.272181", "user_message": "top 5 dealers for tmt", "intent": "PRODUCT", "response": "Did you mean:\n1\ufe0f\u20e3 TMT WELDMESH 12 MM FE500 \u2013 200 X 110 MM ( 6 MTR X 2.4 MTR)\n2\ufe0f\u20e3 TMT WELDMESH 08 MM "}
+{"timestamp": "2026-01-19T17:09:30.891993", "user_message": "top delaers by sales", "intent": "ANALYTICS", "response": "Invalid analytics query."}
+{"timestamp": "2026-01-19T17:19:47.932716", "user_message": "top dealers", "intent": "TOP_DEALERS", "response": "```\nDealer | TotalSales | Orders\n----------------------------\nZHUZOOR INFRATECH PRIVATE LI | 0.0 | 1"}
+{"timestamp": "2026-01-19T17:20:09.089454", "user_message": "top dealers by sales", "intent": "SNAPSHOT", "response": "\u274c Dealer 'S By Sales' not found."}
+{"timestamp": "2026-01-19T17:20:24.310401", "user_message": "top dealer by sales", "intent": "SNAPSHOT", "response": "\u274c Dealer 'By Sales' not found."}
+{"timestamp": "2026-01-20T12:42:56.146727", "user_message": "total sales by state", "intent": "STATE", "response": "Could not retrieve state data."}
+{"timestamp": "2026-01-20T12:43:09.270903", "user_message": "top 5 dealers", "intent": "SNAPSHOT", "response": "Did you mean:\n1\ufe0f\u20e3 AMARARAJA POWER SYSTEMS LTD (PROJECT)\n2\ufe0f\u20e3 PATTUPOGULA STEELS\n3\ufe0f\u20e3 BALAJI STEEL CORP"}

@@ -1,7 +1,7 @@
 """
 Flask application that acts as the webhook endpoint for the Twilio WhatsApp chatbot.
-It receives incoming WhatsApp messages, forwards them to the bot logic, and returns
-the generated responses back to the user via Twilio.
+It receives incoming WhatsApp messages, forwards them to the bot logic,
+and returns responses back to the user via Twilio.
 """
 
 from flask import Flask, request
@@ -10,28 +10,46 @@ from dotenv import load_dotenv
 
 from bot import setup_bot, handle_message
 
+# ============================================================
+# APP SETUP
+# ============================================================
+
 load_dotenv()
 
 app = Flask(__name__)
+
+# Initialize bot (load intents, DB schema, LLM)
 setup_bot()
+
+# ============================================================
+# TWILIO WEBHOOK
+# ============================================================
 
 @app.route("/whatsapp", methods=["POST"])
 def whatsapp_reply():
     """
-    Main Twilio webhook
-    Handles:
-    - Text messages
+    Main Twilio webhook endpoint.
+    Receives incoming WhatsApp messages and sends responses.
     """
 
     incoming_text = request.values.get("Body", "").strip()
+    from_number = request.values.get("From", "").strip()
 
-    response_text, _ = handle_message(incoming_text)
+    # Forward message to bot logic
+    response_text, _ = handle_message(
+        incoming_text,
+        user_id=from_number or "anonymous"
+    )
 
+    # Build Twilio response
     resp = MessagingResponse()
     resp.message(response_text)
 
     return str(resp)
 
+# ============================================================
+# LOCAL DEV ENTRYPOINT
+# ============================================================
 
 if __name__ == "__main__":
     app.run(port=5000, debug=True)

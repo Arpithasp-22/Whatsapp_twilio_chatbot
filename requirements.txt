@@ -4,3 +4,5 @@ pandas
 openai
 langchain-openai
 twilio
+langchain-google-genai
+
