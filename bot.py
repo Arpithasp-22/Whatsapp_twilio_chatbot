@@ -334,13 +334,18 @@ IMPORTANT NOTES:
 6. For aggregations, use the cleaned amount expression above
 7. For product/item searches, use LIKE with wildcards: \"Item Group\" LIKE '%keyword%'
 8. Common item groups: 'Tiscon - Retail', 'HR Coils - Projects', 'Wiron - Binding Wire', 'Projects - CAB', etc.
+9. **CRITICAL**: For dealer/company names, ALWAYS use case-insensitive LIKE with wildcards: UPPER(Dealer) LIKE UPPER('%keyword%')
+   - Example: For "balaji steel", use: UPPER(Dealer) LIKE UPPER('%balaji%steel%')
+   - Example: For "amararaja", use: UPPER(Dealer) LIKE UPPER('%amararaja%')
+   - Dealer names in DB often have suffixes like "LTD", "(PROJECT)", "PRIVATE LIMITED", etc.
+10. When filtering by product type (steel, wire, etc.), use broad LIKE patterns to catch all variations
 
 User's time period: {period}
 {f"Filter: substr(\"Date\", -2) = '{period[-2:]}' (year {period})" if period.isdigit() else "Filter: Use all available data - DO NOT add date filters for relative periods"}
 
 Generate ONLY a valid SQL SELECT query. No explanations, no markdown, just the SQL.
 Use double quotes for column names that have spaces.
-If user asks about 'steel', match against item groups containing 'Tiscon', 'HR Coil', 'Wiron', etc."""
+ALWAYS use UPPER() with LIKE for case-insensitive matching on text fields like Dealer, City, Product, etc."""
     
     prompt = ChatPromptTemplate.from_messages([
         ("system", system_prompt),
