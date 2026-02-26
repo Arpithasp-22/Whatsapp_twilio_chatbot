@@ -16,7 +16,7 @@ TABLE_NAME = "sales"
 DATE_COL = "Date"
 AMOUNT_COL = " Basic Amount "
 
-MODEL = "gemini-2.0-flash-exp"
+MODEL = "models/gemini-2.5-flash"
 
 MAX_ROWS = 5
 MAX_LIMIT = 50
