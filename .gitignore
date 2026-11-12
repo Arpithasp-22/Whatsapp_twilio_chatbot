@@ -1,13 +1,14 @@
 # secrets
 .env
 
-# data
+# data (contains business / user data)
 data/*.csv
 data/*.db
+data/bot_logs.jsonl
 
 # python
 __pycache__/
 *.pyc
-
-# node
-node_modules/
+.pytest_cache/
+.venv/
+venv/

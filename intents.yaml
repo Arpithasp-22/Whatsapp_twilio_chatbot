@@ -13,7 +13,6 @@ SNAPSHOT:
     - "check dealer"
   regex:
     - "dealer\\s+(\\w+)"
-    - "check\\s+(\\w+)"
 
 COMPARE:
   exact:
@@ -30,7 +29,7 @@ COMPARE:
     - "compare dealers"
   regex:
     - "(\\w+)\\s+vs\\.?\\s+(\\w+)"
-    - "compare\\s+(.+?)\\s+(?:and|with)\\s+(.+?)"
+    - "^compare\\s+.+\\s+(?:and|with)\\s+.+"
 
 TOP_DEALERS:
   exact:
@@ -64,7 +63,6 @@ STATE:
   regex:
     - "sales\\s+by\\s+state"
     - "state\\s+wise"
-    - "in\\s+(\\w+)"
 
 PRODUCT:
   exact:
@@ -82,7 +80,7 @@ PRODUCT:
     - "dealers for"
     - "product sales"
   regex:
-    - "(?:for|of)\\s+([a-z\\s]+?)(?:\\s+dealers|\\s+sales|\\?|$)"
+    - "(?:dealers|sales)\\s+(?:for|of)\\s+\\w+"
     - "top\\s+\\d+\\s+dealers\\s+for"
 
 RISK_ANALYSIS:
